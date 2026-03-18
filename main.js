@@ -107,38 +107,88 @@ document.head.insertAdjacentHTML('beforeend', `
 `);
 
 /* ============================================================
-   CONTACT FORM — enhanced mailto fallback
+   CONTACT FORM — GitHub Contents API submission
    ============================================================ */
+async function sha256hex(str) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+async function pushMessageToGitHub(payload) {
+  const json     = JSON.stringify(payload, null, 2);
+  const hash     = await sha256hex(json);
+  const path     = `messages/${hash}.json`;
+  const url      = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`;
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${GITHUB_CONFIG.token}`,
+      'Content-Type':  'application/json',
+      'Accept':        'application/vnd.github+json'
+    },
+    body: JSON.stringify({
+      message: `contact: ${payload.name} <${payload.email}>`,
+      content: toBase64(json),
+      branch:  GITHUB_CONFIG.branch
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub API error ${res.status}`);
+  }
+
+  return hash;
+}
+
 const contactForm = document.getElementById('contactForm');
 
 if (contactForm) {
-  contactForm.addEventListener('submit', (e) => {
+  contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const name     = contactForm.querySelector('#name').value.trim();
     const email    = contactForm.querySelector('#email').value.trim();
-    const business = contactForm.querySelector('#business').value;
+    const business = contactForm.querySelector('#business').value || 'Not specified';
     const message  = contactForm.querySelector('#message').value.trim();
 
     if (!name || !email || !message) return;
 
-    const subject  = encodeURIComponent(`AI Consulting Inquiry from ${name}`);
-    const body     = encodeURIComponent(
-      `Name: ${name}\nEmail: ${email}\nBusiness Type: ${business || 'Not specified'}\n\nMessage:\n${message}`
-    );
-
-    window.location.href = `mailto:smongan1@gmail.com?subject=${subject}&body=${body}`;
-
-    // Optimistic success feedback
     const btn = contactForm.querySelector('button[type="submit"]');
-    const original = btn.textContent;
-    btn.textContent = 'Opening email client...';
-    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    btn.disabled    = true;
 
-    setTimeout(() => {
-      btn.textContent = original;
-      btn.disabled = false;
-    }, 3000);
+    try {
+      await pushMessageToGitHub({
+        name,
+        email,
+        business,
+        message,
+        submitted_at: new Date().toISOString()
+      });
+
+      btn.textContent = 'Message sent';
+      contactForm.reset();
+
+      setTimeout(() => {
+        btn.textContent = 'Send Message';
+        btn.disabled    = false;
+      }, 4000);
+
+    } catch (err) {
+      console.error('Submission failed:', err);
+      btn.textContent = 'Failed — try emailing directly';
+      btn.disabled    = false;
+
+      setTimeout(() => {
+        btn.textContent = 'Send Message';
+      }, 4000);
+    }
   });
 }
 
