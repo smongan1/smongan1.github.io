@@ -107,56 +107,8 @@ document.head.insertAdjacentHTML('beforeend', `
 `);
 
 /* ============================================================
-   CONTACT FORM — GitHub Contents API submission
+   CONTACT FORM
    ============================================================ */
-async function sha256hex(str) {
-  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function toBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-function weaveToken(t1, t2, t3) {
-  let result = '';
-  for (let i = 0; i < Math.max(t1.length, t2.length, t3.length); i++) {
-    if (i < t1.length) result += t1[i];
-    if (i < t2.length) result += t2[i];
-    if (i < t3.length) result += t3[i];
-  }
-  return result;
-}
-
-async function pushMessageToGitHub(payload) {
-  const token    = weaveToken(GITHUB_CONFIG.token1, GITHUB_CONFIG.token2, GITHUB_CONFIG.token3);
-  const json     = JSON.stringify(payload, null, 2);
-  const hash     = await sha256hex(json);
-  const path     = `messages/${hash}.json`;
-  const url      = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`;
-
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type':  'application/json',
-      'Accept':        'application/vnd.github+json'
-    },
-    body: JSON.stringify({
-      message: `contact: ${payload.name} <${payload.email}>`,
-      content: toBase64(json),
-      branch:  GITHUB_CONFIG.branch
-    })
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `GitHub API error ${res.status}`);
-  }
-
-  return hash;
-}
-
 const contactForm = document.getElementById('contactForm');
 
 if (contactForm) {
@@ -175,13 +127,18 @@ if (contactForm) {
     btn.disabled    = true;
 
     try {
-      await pushMessageToGitHub({
-        name,
-        email,
-        business,
-        message,
-        submitted_at: new Date().toISOString()
+      const res = await fetch(CONTACT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback_type: 'consulting_inquiry',
+          subject: `[${business}] ${name}`,
+          message: message,
+          email: email
+        })
       });
+
+      if (!res.ok) throw new Error(`${res.status}`);
 
       btn.textContent = 'Message sent';
       contactForm.reset();
