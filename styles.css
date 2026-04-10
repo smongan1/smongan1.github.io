@@ -1051,3 +1051,29 @@ ul { list-style: none; }
     gap: 16px;
   }
 }
+.portrait-container {
+  /* Set the size of your square portrait here */
+  width: 300px;
+  height: 300px;
+  
+  /* The "Frame" styling */
+  border: 8px solid #ffffff; /* White inner edge */
+  outline: 1px solid #e0e0e0; /* Thin grey outer definition */
+  box-shadow: 
+    0 10px 25px rgba(0, 0, 0, 0.1), /* Soft drop shadow */
+    inset 0 0 10px rgba(0, 0, 0, 0.05); /* Subtle inner depth */
+  
+  /* Ensures the image stays square and contained */
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f9f9f9;
+}
+
+.portrait-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Keeps image from stretching */
+  display: block;
+}
