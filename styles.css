@@ -1069,6 +1069,7 @@ ul { list-style: none; }
   justify-content: center;
   align-items: center;
   background-color: #f9f9f9;
+  border-radius: var(--radius);
 }
 
 .portrait-container img {
